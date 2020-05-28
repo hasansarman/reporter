@@ -4,7 +4,7 @@ namespace Encore\Admin\Reporter;
 
 use Encore\Admin\Extension;
 use Illuminate\Http\Request;
-
+use Throwable;
 class Reporter extends Extension
 {
     use BootExtension;
@@ -22,6 +22,50 @@ class Reporter extends Extension
     public function __construct(Request $request)
     {
         $this->request = $request;
+    }
+ public static function report(Throwable $exception)
+    {
+        $reporter = new static(request());
+
+        return $reporter->reportException($exception);
+    }
+
+    /**
+     * @param \Exception $exception
+     *
+     * @return bool
+     */
+    public function reportException(Throwable $exception)
+    {
+        $data = [
+
+            // Request info.
+            'method'    => $this->request->getMethod(),
+            'ip'        => $this->request->getClientIps(),
+            'path'      => $this->request->path(),
+            'query'     => array_except($this->request->all(), ['_pjax', '_token', '_method', '_previous_']),
+            'body'      => $this->request->getContent(),
+            'cookies'   => $this->request->cookies->all(),
+            'headers'   => array_except($this->request->headers->all(), 'cookie'),
+
+            // Exception info.
+            'exception' => get_class($exception),
+            'code'      => $exception->getCode(),
+            'file'      => $exception->getFile(),
+            'line'      => $exception->getLine(),
+            'message'   => $exception->getMessage(),
+            'trace'     => $exception->getTraceAsString(),
+        ];
+
+        $data = $this->stringify($data);
+
+        try {
+            $this->store($data);
+        } catch (\Exception $e) {
+//            $result = $this->reportException($e);
+        }
+
+//        return $result;
     }
 
     /**
